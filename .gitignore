@@ -1,0 +1,15 @@
+# macOS
+.DS_Store
+
+# Xcode user data
+*.xcuserstate
+*.xccheckout
+*.moved-aside
+xcuserdata/
+
+# Local build products and Swift package checkouts
+# This covers the locally checked out FluidAudio package as well.
+build/
+
+# Misc
+DerivedData/
