@@ -42,16 +42,6 @@ Lekh Flow is designed around local-first voice transcription.
 
 ## Screenshot
 
-We will be adding a screenshot of the app in action here.
-
-Recommended placeholder path:
-
-```text
-docs/lekh-flow-screenshot.png
-```
-
-Once added, this section can become:
-
 ```md
 ![Lekh Flow in action](docs/lekh-flow-screenshot.png)
 ```
