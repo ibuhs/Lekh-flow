@@ -43,7 +43,7 @@ Lekh Flow is designed around local-first voice transcription.
 ## Screenshot
 
 ```md
-![Lekh Flow in action](docs/lekh-flow-screenshot.png)
+[Lekh Flow in action](docs/lekh-flow-screenshot.png)
 ```
 
 ## Tech Stack
