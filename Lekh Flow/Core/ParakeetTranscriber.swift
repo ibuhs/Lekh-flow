@@ -21,8 +21,24 @@ import Observation
 
 @MainActor
 @Observable
-final class ParakeetTranscriber {
+final class ParakeetTranscriber: LiveTranscriber {
     static let shared = ParakeetTranscriber()
+
+    // MARK: - LiveTranscriber identity
+
+    nonisolated var kind: TranscriberKind { .parakeet }
+
+    // MARK: - Audio capture (owned by this backend)
+
+    /// Mic capture is owned by the backend so it can stay tightly
+    /// coupled to the streaming manager's lifetime — `start()` boots
+    /// the engine, `stop()` tears it down, no plumbing required from
+    /// the controller.
+    private let mic = MicrophoneCapture()
+
+    /// Smoothed 0…1 level for the popup waveform. Mirrors
+    /// `MicrophoneCapture.level` on every frame.
+    var currentLevel: Float { mic.level }
 
     // MARK: - Public state
 
@@ -91,6 +107,11 @@ final class ParakeetTranscriber {
 
     private init() {
         NSLog("🟠 ParakeetTranscriber.init — FluidAudio singleton came alive")
+        // Pipe mic audio straight into the streaming manager. `append`
+        // is a no-op until `start()` flips `isRunning` true.
+        mic.onBuffer = { [weak self] buffer in
+            self?.append(buffer)
+        }
     }
 
     // MARK: - Lifecycle
@@ -139,6 +160,11 @@ final class ParakeetTranscriber {
         isRunning = true
         startProcessingLoop()
         NSLog("🧠 transcriber.start — processing loop running")
+
+        // Boot the mic last so the first audio frame lands in a
+        // fully-initialised pipeline.
+        try mic.start()
+        NSLog("🧠 transcriber.start — mic engine running")
     }
 
     /// Append a 16 kHz mono Float32 PCM buffer for live transcription.
@@ -168,6 +194,10 @@ final class ParakeetTranscriber {
     func stop() async -> String {
         guard isRunning else { return committedText }
         isRunning = false
+
+        // Stop the mic first so no further audio reaches the manager
+        // while we drain the tail.
+        mic.stop()
 
         processingTask?.cancel()
         processingTask = nil

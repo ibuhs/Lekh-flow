@@ -76,11 +76,12 @@ final class LekhAppDelegate: NSObject, NSApplicationDelegate {
             showOnboarding()
         } else {
             NSLog("🟢 onboarding already complete — warming model in background")
-            // Background-warm the streaming Parakeet model so the very
-            // first hotkey press has a hot model rather than a 150MB
-            // download blocking the UI.
-            Task.detached(priority: .utility) {
-                try? await ParakeetTranscriber.shared.warm()
+            // Background-warm whichever backend the active language
+            // uses (Parakeet for English, WhisperKit otherwise) so
+            // the first hotkey press has a hot model rather than a
+            // multi-hundred-MB download blocking the UI.
+            Task { @MainActor in
+                try? await TranscriberRouter.warmActive()
             }
         }
         NSLog("🟢 launch complete")
@@ -132,8 +133,8 @@ final class LekhAppDelegate: NSObject, NSApplicationDelegate {
                 self?.onboardingWindow?.close()
                 self?.onboardingWindow = nil
                 UserDefaults.standard.set(true, forKey: AppSettings.Keys.hasCompletedOnboarding)
-                Task.detached(priority: .utility) {
-                    try? await ParakeetTranscriber.shared.warm()
+                Task { @MainActor in
+                    try? await TranscriberRouter.warmActive()
                 }
             }
         }

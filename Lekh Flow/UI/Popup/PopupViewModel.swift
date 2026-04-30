@@ -35,23 +35,30 @@ final class PopupViewModel {
     /// streaming engine is conservative about emitting partials before
     /// an utterance boundary.
     var transcript: String {
-        controller.transcriber.liveText
+        controller.currentTranscriber.liveText
     }
 
     var isModelDownloading: Bool {
-        controller.transcriber.isDownloading
+        controller.currentTranscriber.isDownloading
     }
 
     var modelDownloadProgress: Double {
-        controller.transcriber.downloadProgress
+        controller.currentTranscriber.downloadProgress
     }
 
     var isRunning: Bool {
-        controller.transcriber.isRunning
+        controller.currentTranscriber.isRunning
     }
 
     var micLevel: Float {
-        controller.microphone.level
+        controller.currentTranscriber.currentLevel
+    }
+
+    /// Identifier of the backend currently servicing dictation.
+    /// Used by the popup to render backend-specific copy (e.g.
+    /// "Downloading Whisper…" vs "Downloading Parakeet…").
+    var backendKind: TranscriberKind {
+        controller.currentTranscriber.kind
     }
 
     var hotkeyMode: HotkeyMode {

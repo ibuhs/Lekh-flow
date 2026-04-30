@@ -2,12 +2,13 @@
 //  OnboardingView.swift
 //  Lekh Flow
 //
-//  Five-step first-launch flow:
+//  Six-step first-launch flow:
 //    1. Welcome — what is Lekh Flow.
 //    2. Microphone permission.
 //    3. Accessibility permission (so paste-into-app works).
 //    4. Pick a global shortcut.
-//    5. Download the streaming Parakeet model.
+//    5. Pick the dictation language (drives backend selection).
+//    6. Download the model bundle for the chosen backend.
 //
 
 import SwiftUI
@@ -18,6 +19,7 @@ enum OnboardingStep: Int, CaseIterable {
     case microphone
     case accessibility
     case shortcut
+    case language
     case model
     case done
 }
@@ -83,6 +85,8 @@ struct OnboardingView: View {
                 // would have to restart the app for the hotkey to fire.
                 dictation.registerHotkey()
             })
+        case .language:
+            LanguageStep()
         case .model:
             ModelStep(dictation: dictation)
         case .done:
@@ -114,13 +118,24 @@ struct OnboardingView: View {
         }
     }
 
+    private var activeTranscriber: LiveTranscriber {
+        TranscriberRouter.active
+    }
+
     private var primaryButtonLabel: String {
         switch step {
         case .welcome:       return "Get started"
         case .microphone:    return dictation.permissions.microphoneAuthorized ? "Continue" : "Grant access"
         case .accessibility: return dictation.permissions.accessibilityAuthorized ? "Continue" : "Open System Settings"
         case .shortcut:      return shortcutIsSet ? "Continue" : "Set later"
-        case .model:         return dictation.transcriber.isReady ? "Finish" : (dictation.transcriber.isDownloading ? "Downloading…" : "Download model")
+        case .language:      return "Continue"
+        case .model:
+            if activeTranscriber.isReady { return "Finish" }
+            if activeTranscriber.isDownloading { return "Downloading…" }
+            if activeTranscriber.kind == .whisperKit && AppSettings.shared.whisperKitModel.isEmpty {
+                return "Pick a model"
+            }
+            return "Download model"
         case .done:          return "Finish"
         }
     }
@@ -128,7 +143,13 @@ struct OnboardingView: View {
     private var canAdvance: Bool {
         switch step {
         case .model:
-            return !dictation.transcriber.isDownloading
+            if activeTranscriber.isDownloading { return false }
+            if activeTranscriber.kind == .whisperKit
+                && AppSettings.shared.whisperKitModel.isEmpty
+                && !activeTranscriber.isReady {
+                return false
+            }
+            return true
         default:
             return true
         }
@@ -156,14 +177,17 @@ struct OnboardingView: View {
                 dictation.permissions.openAccessibilitySettings()
             }
         case .shortcut:
+            withAnimation(.spring) { step = .language }
+        case .language:
             withAnimation(.spring) { step = .model }
         case .model:
-            if dictation.transcriber.isReady {
+            let backend = activeTranscriber
+            if backend.isReady {
                 withAnimation(.spring) { step = .done }
             } else {
                 Task {
-                    try? await dictation.transcriber.warm()
-                    if dictation.transcriber.isReady {
+                    try? await backend.warm()
+                    if backend.isReady {
                         withAnimation(.spring) { step = .done }
                     }
                 }
@@ -345,27 +369,98 @@ struct ShortcutStep: View {
     }
 }
 
+struct LanguageStep: View {
+    private var settings: AppSettings { .shared }
+
+    var body: some View {
+        @Bindable var bindable = settings
+
+        StepShell(
+            icon: "globe",
+            title: "Pick your language",
+            subtitle: "Lekh Flow auto-picks the best on-device model for what you speak."
+        ) {
+            VStack(alignment: .leading, spacing: 16) {
+                Picker("Dictation language", selection: $bindable.dictationLanguage) {
+                    ForEach(DictationLanguage.all) { lang in
+                        Text(lang.displayName).tag(lang)
+                    }
+                }
+                .pickerStyle(.menu)
+                .controlSize(.large)
+
+                Text(bindable.dictationLanguage.preferredBackend == .parakeet
+                     ? "English routes through NVIDIA Parakeet — the fastest streaming model on the Neural Engine."
+                     : "Non-English routes through Whisper. Slightly heavier, but unmatched coverage across 90+ languages.")
+                    .font(.system(size: 13))
+                    .foregroundStyle(.secondary)
+
+                HStack(spacing: 8) {
+                    Image(systemName: "cpu")
+                        .foregroundStyle(.tint)
+                    Text("Active backend: ")
+                        .foregroundStyle(.secondary)
+                    Text(bindable.dictationLanguage.preferredBackend.displayName)
+                        .fontWeight(.semibold)
+                }
+                .font(.system(size: 12))
+            }
+        }
+    }
+}
+
 struct ModelStep: View {
     let dictation: DictationController
+    private var backend: LiveTranscriber { TranscriberRouter.active }
+    private var settings: AppSettings { .shared }
+
     var body: some View {
+        @Bindable var bindable = settings
+
         StepShell(
             icon: "cpu",
-            title: "Download Parakeet",
-            subtitle: "A one-time ~150 MB download. Then everything runs offline."
+            title: "Download \(backend.kind.displayName)",
+            subtitle: backend.kind == .parakeet
+                ? "A one-time ~150 MB download. After this everything runs offline."
+                : "Pick the Whisper variant you'd like, then download. After this everything runs offline."
         ) {
             VStack(alignment: .leading, spacing: 18) {
-                if dictation.transcriber.isReady {
+                if backend.kind == .whisperKit {
+                    whisperKitModelPicker(bindable: bindable)
+                    FeatureBullet(
+                        icon: "keyboard",
+                        title: "Press again to commit",
+                        detail: "WhisperKit shows live transcription as you speak, then pastes or copies once when you press your shortcut again to stop."
+                    )
+                }
+
+                if backend.isReady {
                     StatusBadge(granted: true, grantedText: "Model loaded — you're ready to dictate.", waitingText: "")
-                } else if dictation.transcriber.isDownloading {
+                } else if backend.isDownloading {
                     VStack(alignment: .leading, spacing: 8) {
                         HStack {
-                            Text("Downloading model bundle…")
+                            Text("Downloading \(backend.kind.displayName) model…")
                             Spacer()
-                            Text("\(Int(dictation.transcriber.downloadProgress * 100))%")
-                                .monospacedDigit()
+                            if backend.downloadProgress > 0 {
+                                Text("\(Int(backend.downloadProgress * 100))%")
+                                    .monospacedDigit()
+                            }
                         }
-                        ProgressView(value: dictation.transcriber.downloadProgress)
+                        if backend.downloadProgress > 0 {
+                            ProgressView(value: backend.downloadProgress)
+                        } else {
+                            ProgressView()
+                                .progressViewStyle(.linear)
+                        }
                     }
+                } else if let error = backend.lastError {
+                    Text(error)
+                        .font(.system(size: 13))
+                        .foregroundStyle(.red)
+                } else if backend.kind == .whisperKit && bindable.whisperKitModel.isEmpty {
+                    Text("Pick a Whisper model above to start the download.")
+                        .font(.system(size: 13))
+                        .foregroundStyle(.secondary)
                 } else {
                     Text("Click the primary button below to start the download.")
                         .font(.system(size: 13))
@@ -373,6 +468,45 @@ struct ModelStep: View {
                 }
             }
         }
+    }
+
+    @ViewBuilder
+    private func whisperKitModelPicker(bindable: AppSettings) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Whisper model")
+                .font(.system(size: 13, weight: .semibold))
+            Picker("Whisper model", selection: bindable.whisperKitModelBinding()) {
+                if bindable.whisperKitModel.isEmpty {
+                    Text("— Pick a model —").tag("")
+                }
+                ForEach(WhisperKitTranscriber.availableModels, id: \.self) { id in
+                    Text(WhisperKitTranscriber.displayName(for: id)).tag(id)
+                }
+            }
+            .labelsHidden()
+            .pickerStyle(.menu)
+            .controlSize(.large)
+            Text("Tip: start with Base or Small. You can swap models later in Settings → Model.")
+                .font(.system(size: 12))
+                .foregroundStyle(.secondary)
+        }
+        .padding(14)
+        .background(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(Color.secondary.opacity(0.10))
+        )
+    }
+}
+
+private extension AppSettings {
+    /// SwiftUI Picker binding for `whisperKitModel` — `@Bindable`'s
+    /// `$` syntax doesn't compose nicely through helper functions,
+    /// so we expose an explicit `Binding<String>`.
+    func whisperKitModelBinding() -> Binding<String> {
+        Binding(
+            get: { self.whisperKitModel },
+            set: { self.whisperKitModel = $0 }
+        )
     }
 }
 

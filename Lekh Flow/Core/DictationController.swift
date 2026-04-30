@@ -3,10 +3,16 @@
 //  Lekh Flow
 //
 //  The single source of truth for "is the user dictating right now?".
-//  Owns the global hotkey registration, the popup window, the
-//  microphone, and the Parakeet transcriber. Everything else in the
-//  app reads its state through this controller and tells it to start
-//  / stop.
+//  Owns the global hotkey registration and the popup window, and
+//  delegates audio capture + transcription to whichever
+//  `LiveTranscriber` the `TranscriberRouter` selects for the
+//  currently-configured language.
+//
+//  This used to own a `MicrophoneCapture` directly and pass buffers
+//  to `ParakeetTranscriber`. After the WhisperKit integration both
+//  backends own their own audio (Parakeet wraps a `MicrophoneCapture`,
+//  WhisperKit drives WhisperKit's `AudioProcessor`) and this
+//  controller is purely orchestration.
 //
 
 import Foundation
@@ -19,9 +25,9 @@ import Observation
 @Observable
 final class DictationController {
     /// Process-wide singleton. Other singletons (AppSettings,
-    /// PermissionsManager, ParakeetTranscriber) all use the same
-    /// pattern, so we follow suit rather than threading the instance
-    /// through @NSApplicationDelegateAdaptor — accessing
+    /// PermissionsManager) follow the same pattern, so we follow
+    /// suit rather than threading the instance through
+    /// @NSApplicationDelegateAdaptor — accessing
     /// `appDelegate.dictation` from the App body was causing scene
     /// re-evaluation thrash on macOS 26.
     static let shared = DictationController()
@@ -31,10 +37,13 @@ final class DictationController {
     /// log "no eventTap" warnings.
     private var popup: PopupWindowController?
 
-    private let mic = MicrophoneCapture()
-
     /// Whether the popup is currently on screen and recording.
     private(set) var isActive: Bool = false
+
+    /// Backend currently driving the active session. Captured at
+    /// `start()` so a mid-session language change (which would be
+    /// odd) doesn't tear down the live pipeline.
+    private var activeTranscriber: LiveTranscriber?
 
     /// True between hotkey-press and hotkey-release in `pushToTalk`
     /// mode. Used so we don't end recording when a stray release event
@@ -57,26 +66,21 @@ final class DictationController {
     private let silenceCommitDelay: TimeInterval = 0.45
 
     // Live observers — view layer can read these directly.
-    var transcriber: ParakeetTranscriber { ParakeetTranscriber.shared }
+
+    /// Backend that should service the *next* dictation session.
+    /// Resolved live from `TranscriberRouter` so the language picker
+    /// in Settings takes effect immediately. While a session is in
+    /// progress, `currentTranscriber` returns whichever backend was
+    /// captured at `start()` so the popup keeps reading from the
+    /// same instance.
+    var currentTranscriber: LiveTranscriber {
+        activeTranscriber ?? TranscriberRouter.active
+    }
+
     var settings: AppSettings { AppSettings.shared }
     var permissions: PermissionsManager { PermissionsManager.shared }
-    var microphone: MicrophoneCapture { mic }
 
-    init() {
-        // Wire mic buffers straight into the transcriber. Set once and
-        // forget — append() is a no-op when the transcriber isn't running.
-        mic.onBuffer = { [weak self] buffer in
-            guard let self else { return }
-            self.transcriber.append(buffer)
-        }
-
-        // We intentionally do not use FluidAudio's built-in EOU callback
-        // to decide when to paste. In practice it's a bit sluggish and
-        // has been unreliable after the first utterance in a session.
-        // Instead we run our own lightweight silence detector on top of
-        // the rolling transcript and paste deltas ourselves.
-        transcriber.onUtterance = nil
-    }
+    init() {}
 
     /// Called from the app delegate after launch. Idempotent.
     func bootstrap() {
@@ -149,6 +153,14 @@ final class DictationController {
             return
         }
 
+        // Capture the active backend for the entire session. We do
+        // not use `activeTranscriber` until the session actually
+        // boots — the popup view model reads `currentTranscriber`
+        // which falls back to `TranscriberRouter.active` until we
+        // commit.
+        let transcriber = TranscriberRouter.active
+        NSLog("▶️ start() — backend=\(transcriber.kind.displayName)")
+
         showPopup()
         isActive = true
         hasInjectedSegment = false
@@ -157,19 +169,33 @@ final class DictationController {
         lastObservedTranscript = ""
         lastTranscriptActivityAt = Date()
         hasPendingTranscriptChange = false
+        // Lekh Flow drives commits off `liveText` stability rather
+        // than the backend's own EOU/utterance hook — see
+        // `tickAutoCommit`. Make sure no stale closure is hanging
+        // around before we boot.
         transcriber.onUtterance = nil
-        NSLog("▶️ start() — popup presented, isActive=true; booting transcriber + mic")
+        activeTranscriber = transcriber
+        NSLog("▶️ start() — popup presented, isActive=true; booting transcriber")
 
         do {
             try await transcriber.start()
-            NSLog("▶️ start() — transcriber.start() returned")
-            try self.mic.start()
-            NSLog("▶️ start() — mic.start() returned; pipeline live")
-            startAutoCommitLoop()
+            NSLog("▶️ start() — transcriber.start() returned; pipeline live")
+            if transcriber.kind == .parakeet {
+                startAutoCommitLoop()
+            } else {
+                // WhisperKit revises the same cumulative transcript
+                // repeatedly while decoding. If we feed those live
+                // revisions through the Parakeet-style delta paste loop,
+                // each revision gets pasted as a new sentence. For Whisper
+                // we keep the popup live, then commit exactly once from
+                // the final transcript in `stop(commit:)`.
+                NSLog("▶️ start() — WhisperKit live preview only; paste/copy will commit once on stop")
+            }
             playStartSound()
         } catch {
             NSLog("⚠️ start() — failed: \(error)")
             isActive = false
+            activeTranscriber = nil
             autoCommitTask?.cancel()
             autoCommitTask = nil
             popup?.showError("Couldn't start dictation: \(error.localizedDescription)")
@@ -177,20 +203,19 @@ final class DictationController {
     }
 
     /// Stop continuous dictation. Text has been streamed live to the
-    /// focused app via `onUtterance` throughout the session, so all
-    /// this does is flush the tail audio (any words spoken since the
-    /// last EOU) — those final words are pasted via `onUtterance` too
-    /// — then dismiss the popup. `commit:false` is used by the popup
-    /// X / Esc to suppress that tail when the user wants to throw away
-    /// the in-flight thought.
+    /// focused app via the transcript-stability auto-commit loop, so
+    /// all this does is flush the tail audio (whatever the backend
+    /// produces in its final `stop()` pass) — `commit:false` is used
+    /// by the popup X / Esc to suppress that tail when the user
+    /// wants to throw away the in-flight thought.
     func stop(commit: Bool) async {
         NSLog("⏹ stop() called — commit=\(commit) isActive=\(isActive)")
-        guard isActive else { return }
+        guard isActive, let transcriber = activeTranscriber else { return }
         isActive = false
 
         autoCommitTask?.cancel()
         autoCommitTask = nil
-        mic.stop()
+
         if commit {
             let finalText = await transcriber.stop()
             injectAvailableTranscript(from: finalText)
@@ -202,6 +227,7 @@ final class DictationController {
         hidePopup()
         playStopSound()
         await transcriber.reset()
+        activeTranscriber = nil
         hasInjectedSegment = false
         lastInjectedTranscript = ""
         deliveredTranscript = ""
@@ -213,15 +239,14 @@ final class DictationController {
         autoCommitTask?.cancel()
         autoCommitTask = Task { [weak self] in
             while let self, !Task.isCancelled, self.isActive {
-                await MainActor.run {
-                    self.tickAutoCommit()
-                }
+                self.tickAutoCommit()
                 try? await Task.sleep(for: .milliseconds(90))
             }
         }
     }
 
     private func tickAutoCommit() {
+        guard let transcriber = activeTranscriber else { return }
         let currentTranscript = transcriber.liveText.trimmingCharacters(in: .whitespacesAndNewlines)
         let now = Date()
 

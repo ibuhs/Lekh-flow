@@ -2,7 +2,7 @@
 
 Open-source, system-wide voice dictation for macOS.
 
-`Lekh Flow` is a menu bar app that lets you press a global shortcut, speak naturally, and have text appear where your cursor already is. It is designed to feel like a native dictation layer for your Mac: fast to summon, minimal in UI, private by default, and powered by fully on-device speech recognition.
+`Lekh Flow` is a menu bar app that lets you press a global shortcut, speak naturally, and have text appear where your cursor already is. It is designed to feel like a native dictation layer for your Mac: fast to summon, minimal in UI, private by default, multilingual, and powered by fully on-device speech recognition.
 
 ## What It Does
 
@@ -13,9 +13,9 @@ Core workflow:
 1. Press your global shortcut.
 2. Start speaking.
 3. Watch the live popup confirm that the app is listening.
-4. Pause briefly.
-5. Lekh Flow commits the recognized text and either pastes it into the focused app or copies it to the clipboard, depending on your settings.
-6. Keep speaking to continue dictating in the same session.
+4. For English dictation, pause briefly and Lekh Flow can commit recognized text continuously.
+5. For WhisperKit multilingual dictation, press the shortcut again to commit the final transcript once.
+6. Lekh Flow either pastes into the focused app or copies to the clipboard, depending on your settings.
 
 Everything is built around the idea that dictation should feel instant and invisible, not like opening a full recording app every time you want to use your voice.
 
@@ -23,7 +23,9 @@ Everything is built around the idea that dictation should feel instant and invis
 
 - Global hotkey to start and stop dictation from anywhere on macOS
 - Floating popup with live transcript feedback and waveform visualization
-- On-device transcription using Parakeet via `FluidAudio`
+- On-device English transcription using Parakeet via `FluidAudio`
+- Multilingual on-device transcription using `WhisperKit`
+- Language-first backend routing: English uses Parakeet, non-English languages use WhisperKit
 - System-wide text insertion into the currently focused app
 - Copy-to-clipboard mode for workflows where automatic paste is not desired
 - Onboarding flow for permissions and shortcut setup
@@ -44,7 +46,6 @@ Lekh Flow is designed around local-first voice transcription.
 
 ![Lekh Flow in action](docs/lekh-flow-screenshot.png)
 
-
 ## Tech Stack
 
 - Swift
@@ -52,6 +53,7 @@ Lekh Flow is designed around local-first voice transcription.
 - AppKit
 - `AVAudioEngine` for microphone capture
 - [`FluidAudio`](https://github.com/FluidInference/FluidAudio) for streaming Parakeet ASR
+- [`WhisperKit`](https://github.com/argmaxinc/WhisperKit) for multilingual on-device Whisper transcription
 - [`KeyboardShortcuts`](https://github.com/sindresorhus/KeyboardShortcuts) for global shortcut handling
 
 ## Running the Project
@@ -100,6 +102,9 @@ Kaila Labs builds privacy-first apps that keep user data on-device whenever poss
 
 - **[Payoff AI Pro](https://kailalabs.com/apps/payoff-ai-pro/)**  
   Private on-device AI debt management with deep analysis and strategy tools
+
+- **[Veroi AI](https://veroi.ai/)**  
+  AI tools from Kaila Labs for creating and launching faster
 
 Learn more at **[kailalabs.com](https://kailalabs.com/)**.
 

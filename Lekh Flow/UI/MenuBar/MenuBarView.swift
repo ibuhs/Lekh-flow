@@ -56,8 +56,9 @@ struct MenuBarView: View {
         if controller.isActive {
             return "Listening…"
         }
-        if controller.transcriber.isDownloading {
-            return "Downloading model \(Int(controller.transcriber.downloadProgress * 100))%"
+        let backend = controller.currentTranscriber
+        if backend.isDownloading {
+            return "Downloading \(backend.kind.displayName) \(Int(backend.downloadProgress * 100))%"
         }
         if let shortcut = KeyboardShortcuts.getShortcut(for: .toggleDictation) {
             return "Press \(shortcut) to dictate"
@@ -95,6 +96,9 @@ struct MenuBarView: View {
         VStack(alignment: .leading, spacing: 4) {
             menuButton(title: "Lekh AI Pro", systemImage: "arrow.up.forward.app") {
                 openURL("https://lekhai.app/pro")
+            }
+            menuButton(title: "Veroi AI", systemImage: "sparkles") {
+                openURL("https://veroi.ai")
             }
             menuButton(title: "Kaila Labs", systemImage: "globe") {
                 openURL("https://kailalabs.com")

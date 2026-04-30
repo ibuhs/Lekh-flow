@@ -99,6 +99,12 @@ struct PopupView: View {
     }
 
     private var hotkeyHint: String {
+        if model.backendKind == .whisperKit {
+            switch model.hotkeyMode {
+            case .toggle:     return "Tap shortcut again to commit"
+            case .pushToTalk: return "Release to commit"
+            }
+        }
         switch model.hotkeyMode {
         case .toggle:     return "Tap shortcut to finish"
         case .pushToTalk: return "Release to finish"
@@ -130,7 +136,7 @@ struct PopupView: View {
                 Image(systemName: "arrow.down.circle.fill")
                     .font(.system(size: 18, weight: .semibold))
                     .foregroundStyle(.tint)
-                Text("Downloading Parakeet model…")
+                Text("Downloading \(model.backendKind.displayName) model…")
                     .font(.system(size: 16, weight: .semibold, design: .rounded))
                 Spacer()
                 Text("\(Int(model.modelDownloadProgress * 100))%")
@@ -140,7 +146,7 @@ struct PopupView: View {
             ProgressView(value: model.modelDownloadProgress)
                 .progressViewStyle(.linear)
                 .tint(.accentColor)
-            Text("Lekh Flow runs entirely on-device. The first launch fetches ~150 MB.")
+            Text("Lekh Flow runs entirely on-device. Model bundles are cached after the first download.")
                 .font(.system(size: 11, weight: .medium))
                 .foregroundStyle(.secondary)
         }

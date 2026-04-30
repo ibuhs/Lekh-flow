@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		A2FLUID00000001 /* FluidAudio in Frameworks */ = {isa = PBXBuildFile; productRef = A2FLUID00000002 /* FluidAudio */; };
 		A2KBSC00000001 /* KeyboardShortcuts in Frameworks */ = {isa = PBXBuildFile; productRef = A2KBSC00000002 /* KeyboardShortcuts */; };
+		A2WHSPR00000001 /* WhisperKit in Frameworks */ = {isa = PBXBuildFile; productRef = A2WHSPR00000002 /* WhisperKit */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -30,6 +31,7 @@
 			files = (
 				A2FLUID00000001 /* FluidAudio in Frameworks */,
 				A2KBSC00000001 /* KeyboardShortcuts in Frameworks */,
+				A2WHSPR00000001 /* WhisperKit in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -74,6 +76,7 @@
 			packageProductDependencies = (
 				A2FLUID00000002 /* FluidAudio */,
 				A2KBSC00000002 /* KeyboardShortcuts */,
+				A2WHSPR00000002 /* WhisperKit */,
 			);
 			productName = "Lekh Flow";
 			productReference = A2648EF22F95B8A600226901 /* Lekh Flow.app */;
@@ -106,6 +109,7 @@
 			packageReferences = (
 				A2FLUID00000003 /* XCRemoteSwiftPackageReference "FluidAudio" */,
 				A2KBSC00000003 /* XCRemoteSwiftPackageReference "KeyboardShortcuts" */,
+				A2WHSPR00000003 /* XCRemoteSwiftPackageReference "WhisperKit" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = A2648EF32F95B8A600226901 /* Products */;
@@ -366,6 +370,14 @@
 				minimumVersion = 2.2.0;
 			};
 		};
+		A2WHSPR00000003 /* XCRemoteSwiftPackageReference "WhisperKit" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/argmaxinc/WhisperKit.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 0.13.0;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -378,6 +390,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = A2KBSC00000003 /* XCRemoteSwiftPackageReference "KeyboardShortcuts" */;
 			productName = KeyboardShortcuts;
+		};
+		A2WHSPR00000002 /* WhisperKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A2WHSPR00000003 /* XCRemoteSwiftPackageReference "WhisperKit" */;
+			productName = WhisperKit;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
