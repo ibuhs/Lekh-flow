@@ -34,6 +34,16 @@ Everything is built around the idea that dictation should feel instant and invis
 - Accessibility + microphone permission handling
 - Auto-capitalization for dictated phrases
 
+## Languages
+
+Lekh Flow is language-first: choose the language you want to dictate in, and the app automatically selects the best local transcription backend.
+
+- **English** uses Parakeet via `FluidAudio` for the lowest-latency streaming dictation path. It can commit phrases continuously as you pause.
+- **Non-English languages** use `WhisperKit` with on-device Whisper models for broad multilingual support. WhisperKit shows live transcription in the popup, then commits the final transcript once when you press the shortcut again to stop dictation.
+- **Auto-detect** is available for WhisperKit when you want the model to infer the spoken language.
+
+Supported WhisperKit languages include Afrikaans, Albanian, Amharic, Arabic, Armenian, Assamese, Azerbaijani, Bashkir, Basque, Belarusian, Bengali, Bosnian, Breton, Bulgarian, Burmese, Cantonese, Catalan, Chinese, Croatian, Czech, Danish, Dutch, Estonian, Faroese, Finnish, French, Galician, Georgian, German, Greek, Gujarati, Haitian Creole, Hausa, Hawaiian, Hebrew, Hindi, Hungarian, Icelandic, Indonesian, Italian, Japanese, Javanese, Kannada, Kazakh, Khmer, Korean, Lao, Latin, Latvian, Lingala, Lithuanian, Luxembourgish, Macedonian, Malagasy, Malay, Malayalam, Maltese, Maori, Marathi, Mongolian, Nepali, Norwegian, Nynorsk, Occitan, Pashto, Persian, Polish, Portuguese, Punjabi, Romanian, Russian, Sanskrit, Serbian, Shona, Sindhi, Sinhala, Slovak, Slovenian, Somali, Spanish, Sundanese, Swahili, Swedish, Tagalog, Tajik, Tamil, Tatar, Telugu, Thai, Tibetan, Turkish, Turkmen, Ukrainian, Urdu, Uzbek, Vietnamese, Welsh, Yiddish, and Yoruba.
+
 ## Privacy
 
 Lekh Flow is designed around local-first voice transcription.
