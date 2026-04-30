@@ -44,6 +44,16 @@ Lekh Flow is language-first: choose the language you want to dictate in, and the
 
 Supported WhisperKit languages include Afrikaans, Albanian, Amharic, Arabic, Armenian, Assamese, Azerbaijani, Bashkir, Basque, Belarusian, Bengali, Bosnian, Breton, Bulgarian, Burmese, Cantonese, Catalan, Chinese, Croatian, Czech, Danish, Dutch, Estonian, Faroese, Finnish, French, Galician, Georgian, German, Greek, Gujarati, Haitian Creole, Hausa, Hawaiian, Hebrew, Hindi, Hungarian, Icelandic, Indonesian, Italian, Japanese, Javanese, Kannada, Kazakh, Khmer, Korean, Lao, Latin, Latvian, Lingala, Lithuanian, Luxembourgish, Macedonian, Malagasy, Malay, Malayalam, Maltese, Maori, Marathi, Mongolian, Nepali, Norwegian, Nynorsk, Occitan, Pashto, Persian, Polish, Portuguese, Punjabi, Romanian, Russian, Sanskrit, Serbian, Shona, Sindhi, Sinhala, Slovak, Slovenian, Somali, Spanish, Sundanese, Swahili, Swedish, Tagalog, Tajik, Tamil, Tatar, Telugu, Thai, Tibetan, Turkish, Turkmen, Ukrainian, Urdu, Uzbek, Vietnamese, Welsh, Yiddish, and Yoruba.
 
+## Versioning
+
+The current release is **Lekh Flow 2.0**.
+
+- **2.0 — WhisperKit multilingual release**  
+  Adds `WhisperKit` as a second on-device transcription backend, bringing multilingual dictation to Lekh Flow while keeping Parakeet as the fast English path.
+
+- **1.0 — Parakeet English release**  
+  Introduced the core Lekh Flow experience: global shortcut dictation, menu bar app design, floating live transcription popup, on-device Parakeet transcription via `FluidAudio`, and system-wide paste / clipboard workflows.
+
 ## Privacy
 
 Lekh Flow is designed around local-first voice transcription.
